@@ -1,0 +1,47 @@
+import type { Bridge } from "@serverkgg/bridge";
+import { FORGE_MAVEN, SERVER_JAR } from "../shared";
+import { jarLaunch, type LaunchPlan } from "./launchPlan";
+import { runLoaderInstaller } from "./loaderInstaller";
+
+const legacyJars = (release: string) => {
+	return [
+		`forge-${release}.jar`,
+		`forge-${release}-universal.jar`,
+	];
+};
+
+export const installForge = async (
+	context: Bridge.Context,
+	gameVersion: string,
+	build: string | null,
+	javaMajor: number,
+): Promise<LaunchPlan> => {
+	if (!build) {
+		throw new Error(`no Forge build for minecraft ${gameVersion}`);
+	}
+
+	const release = `${gameVersion}-${build}`;
+
+	const plan = await runLoaderInstaller(context, {
+		name: "Forge",
+		release,
+		installerUrl: `${FORGE_MAVEN}/${release}/forge-${release}-installer.jar`,
+		javaMajor,
+	});
+
+	await context.files.ensure("mods");
+
+	if (plan) {
+		return plan;
+	}
+
+	for (const candidate of legacyJars(release)) {
+		if (await context.files.exists(candidate)) {
+			await context.files.move(candidate, SERVER_JAR);
+
+			return jarLaunch;
+		}
+	}
+
+	throw new Error(`the Forge installer produced no server launcher for ${release}`);
+};
