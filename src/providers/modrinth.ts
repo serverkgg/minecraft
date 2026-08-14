@@ -1,156 +1,27 @@
-import { type Bridge, BridgeNetError, BridgeSecretError } from "@serverkgg/bridge";
-import { ServerVariant } from "../../shared";
-import { CatalogKind, type CatalogTarget } from "../catalogTarget";
+import type { Bridge } from "@serverkgg/bridge";
 import {
-	type CatalogFile,
+	MODRINTH,
+	MODRINTH_SEARCH_CACHE_SECONDS,
+	type ModrinthProject,
+	type ModrinthSearch,
+	type ModrinthVersion,
+	modrinthFile,
+	modrinthRequest,
+} from "./modrinthApi";
+import {
+	AddonKind,
+	type AddonTarget,
 	type CatalogProvider,
 	CatalogProviderId,
 	type CatalogRelease,
 	type CatalogResults,
+	targetLoaders,
 } from "./provider";
-import { asRateLimit } from "./rateLimit";
 
-const SEARCH_CACHE_SECONDS = 60;
-
-const PROJECT_CACHE_SECONDS = 600;
-
-const MODRINTH = "https://api.modrinth.com/v2";
-
-const MODRINTH_CDN = "cdn.modrinth.com";
-
-const SECRET = "MODRINTH_API_KEY";
-
-const SHA512_PATTERN = /^[a-f0-9]{128}$/;
-
-const REJECTED_STATUSES = [
-	401,
-	403,
-];
-
-const PLUGIN_LOADERS = [
-	"paper",
-	"spigot",
-	"bukkit",
-	"purpur",
-	"folia",
-];
-
-interface ModrinthHit {
-	project_id: string;
-	title: string;
-	description: string;
-	icon_url: string | null;
-	downloads: number;
-	author: string | null;
-	categories: string[];
-	date_modified: string | null;
-	slug: string;
-}
-
-interface ModrinthSearch {
-	hits: ModrinthHit[];
-	total_hits: number;
-}
-
-interface ModrinthFile {
-	url: string;
-	filename: string;
-	primary: boolean;
-	size: number;
-	hashes: {
-		sha512?: string;
-	};
-}
-
-interface ModrinthDependency {
-	project_id: string | null;
-	dependency_type: string;
-}
-
-interface ModrinthVersion {
-	project_id: string;
-	version_number: string;
-	version_type: string;
-	files: ModrinthFile[];
-	dependencies: ModrinthDependency[];
-}
-
-interface ModrinthProject {
-	id: string;
-	slug: string;
-	title: string;
-	icon_url: string | null;
-}
-
-const headersOf = (context: Bridge.Context) => {
-	const key = context.secret(SECRET);
-
-	return key
-		? {
-				authorization: key,
-			}
-		: undefined;
-};
-
-const request = async <Result>(
-	context: Bridge.Context,
-	url: string,
-	cacheSeconds = PROJECT_CACHE_SECONDS,
-): Promise<Result> => {
-	const headers = headersOf(context);
-
-	try {
-		return await context.net.json<Result>(url, {
-			headers,
-			cacheSeconds,
-		});
-	} catch (error) {
-		if (
-			headers
-			&& error instanceof BridgeNetError
-			&& error.status !== null
-			&& REJECTED_STATUSES.includes(error.status)
-		) {
-			throw new BridgeSecretError(SECRET, `modrinth rejected the configured key — ${error.message}`);
-		}
-
-		throw asRateLimit(error, CatalogProviderId.Modrinth);
-	}
-};
-
-const loadersFor = (target: CatalogTarget) => {
-	return target.kind === CatalogKind.Mod
-		? [
-				target.variant === ServerVariant.NeoForge ? "neoforge" : target.variant,
-			]
-		: PLUGIN_LOADERS;
-};
-
-const fileOf = (version: ModrinthVersion): CatalogFile | null => {
-	const file = version.files.find((candidate) => candidate.primary) ?? version.files.at(0);
-
-	if (!file || file.size <= 0) {
-		return null;
-	}
-
-	if (!URL.canParse(file.url) || new URL(file.url).hostname !== MODRINTH_CDN) {
-		return null;
-	}
-
-	const sha512 = file.hashes.sha512 ?? "";
-
-	return {
-		filename: file.filename,
-		url: file.url,
-		sizeBytes: file.size,
-		digest: SHA512_PATTERN.test(sha512) ? `sha512:${sha512}` : null,
-	};
-};
-
-const versionFor = async (context: Bridge.Context, target: CatalogTarget, project: string) => {
+const versionFor = async (context: Bridge.Context, target: AddonTarget, project: string) => {
 	const url = new URL(`${MODRINTH}/project/${encodeURIComponent(project)}/version`);
 
-	url.searchParams.set("loaders", JSON.stringify(loadersFor(target)));
+	url.searchParams.set("loaders", JSON.stringify(targetLoaders(target)));
 	url.searchParams.set(
 		"game_versions",
 		JSON.stringify([
@@ -158,9 +29,61 @@ const versionFor = async (context: Bridge.Context, target: CatalogTarget, projec
 		]),
 	);
 
-	const versions = await request<ModrinthVersion[]>(context, url.toString());
+	const versions = await modrinthRequest<ModrinthVersion[]>(context, url.toString());
 
 	return versions.find((version) => version.version_type === "release") ?? versions.at(0) ?? null;
+};
+
+export const modrinthLoaderRelease = async (
+	context: Bridge.Context,
+	project: string,
+	loader: string,
+	gameVersion: string | null,
+): Promise<CatalogRelease | null> => {
+	const url = new URL(`${MODRINTH}/project/${encodeURIComponent(project)}/version`);
+
+	url.searchParams.set(
+		"loaders",
+		JSON.stringify([
+			loader,
+		]),
+	);
+
+	if (gameVersion !== null) {
+		url.searchParams.set(
+			"game_versions",
+			JSON.stringify([
+				gameVersion,
+			]),
+		);
+	}
+
+	const versions = await modrinthRequest<ModrinthVersion[]>(context, url.toString(), MODRINTH_SEARCH_CACHE_SECONDS);
+	const ordered = [
+		...versions,
+	].sort((left, right) => right.date_published.localeCompare(left.date_published));
+	const newest = ordered.find((version) => version.version_type === "release") ?? ordered.at(0);
+
+	if (!newest) {
+		return null;
+	}
+
+	const file = modrinthFile(newest);
+
+	if (!file) {
+		return null;
+	}
+
+	return {
+		title: project,
+		version: newest.version_number,
+		icon: null,
+		pageUrl: `https://modrinth.com/project/${encodeURIComponent(project)}`,
+		gameVersions: newest.game_versions,
+		loaders: newest.loaders,
+		file,
+		dependencies: [],
+	};
 };
 
 export const modrinthProvider: CatalogProvider = {
@@ -246,7 +169,7 @@ export const modrinthProvider: CatalogProvider = {
 			},
 		];
 
-		if (target.kind === CatalogKind.Plugin) {
+		if (target.kind === AddonKind.Plugin) {
 			return shared;
 		}
 
@@ -296,7 +219,7 @@ export const modrinthProvider: CatalogProvider = {
 			[
 				`project_type:${target.kind}`,
 			],
-			loadersFor(target).map((loader) => `categories:${loader}`),
+			targetLoaders(target).map((loader) => `categories:${loader}`),
 			[
 				`versions:${target.gameVersion}`,
 			],
@@ -316,7 +239,7 @@ export const modrinthProvider: CatalogProvider = {
 		url.searchParams.set("index", search.sort ?? (search.query.length > 0 ? "relevance" : "downloads"));
 		url.searchParams.set("facets", JSON.stringify(facets));
 
-		const result = await request<ModrinthSearch>(context, url.toString(), SEARCH_CACHE_SECONDS);
+		const result = await modrinthRequest<ModrinthSearch>(context, url.toString(), MODRINTH_SEARCH_CACHE_SECONDS);
 
 		return {
 			hits: result.hits.map((hit) => {
@@ -337,14 +260,17 @@ export const modrinthProvider: CatalogProvider = {
 	},
 
 	async resolve(context, target, project): Promise<CatalogRelease | null> {
-		const details = await request<ModrinthProject>(context, `${MODRINTH}/project/${encodeURIComponent(project)}`);
+		const details = await modrinthRequest<ModrinthProject>(
+			context,
+			`${MODRINTH}/project/${encodeURIComponent(project)}`,
+		);
 		const version = await versionFor(context, target, project);
 
 		if (!version) {
 			return null;
 		}
 
-		const file = fileOf(version);
+		const file = modrinthFile(version);
 
 		if (!file) {
 			return null;
@@ -355,6 +281,8 @@ export const modrinthProvider: CatalogProvider = {
 			version: version.version_number,
 			icon: details.icon_url,
 			pageUrl: `https://modrinth.com/${target.kind}/${details.slug}`,
+			gameVersions: version.game_versions,
+			loaders: version.loaders,
 			file,
 			dependencies: version.dependencies
 				.filter((dependency) => dependency.dependency_type === "required" && dependency.project_id !== null)

@@ -1,16 +1,19 @@
 import type { BridgeDriver } from "@serverkgg/bridge";
+import { broadcast, gameplay } from "./actions";
+import { addons } from "./addons";
 import { announce } from "./announce";
 import { backup } from "./backup";
-import { catalog } from "./catalog";
 import { players, whitelist } from "./collections";
 import { events } from "./events";
 import { install } from "./install";
 import { lifecycle } from "./lifecycle";
+import { modpackStatus, modpacks } from "./modpacks";
 import { gameVersion, loaderBuild, serverType } from "./options";
 import { panel } from "./panel";
 import { query } from "./query";
 import { settings, version } from "./settings";
 import { terminal } from "./terminal";
+import { worlds } from "./worlds";
 
 export const driver: BridgeDriver = {
 	install,
@@ -29,6 +32,11 @@ export const driver: BridgeDriver = {
 		settings,
 		players,
 		whitelist,
-		catalog,
+		worlds,
+		addons,
+		modpacks,
+		modpackStatus,
+		gameplay,
+		broadcast,
 	},
 };

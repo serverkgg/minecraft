@@ -33,6 +33,13 @@ container:
         default: 25565
         min: 25565
         max: 25664
+    - key: bedrock
+      containerPort: 19132
+      protocol: udp
+      hostRange:
+        default: 19132
+        min: 19132
+        max: 19231
 
 backup:
   except:
@@ -42,6 +49,7 @@ backup:
     - crash-reports/**
     - cache/**
     - .fabric/**
+    - .serverk-staging/**
     - server.jar
     - run.sh
     - run.bat
@@ -84,8 +92,12 @@ files:
     - run.bat
     - .serverk-install.json
     - .serverk-safemode
+    - .serverk-companions.json
+    - .serverk-modpack.json
     - plugins/.serverk-catalog.json
     - mods/.serverk-catalog.json
+    - plugins/floodgate/key.pem
+    - config/floodgate/key.pem
     - "**/session.lock"
     - "**/level.dat_old"
   notable:
@@ -188,6 +200,10 @@ guideTags:
     name:
       ar: ابدأ من هنا
       en: Start here
+  - id: features
+    name:
+      ar: مميزات
+      en: Features
 
 guides:
   - id: getting-started
@@ -205,3 +221,64 @@ guides:
     bodyPath:
       ar: guides/getting-started/ar.md
       en: guides/getting-started/en.md
+  - id: crossplay
+    title:
+      ar: كروس بلاي — لاعبي بيدروك في سيرفرك
+      en: Crossplay — Bedrock players on your server
+    summary:
+      ar: فعّل زر واحد وخل أصحابك من الجوال والكونسول وويندوز يدخلون سيرفر الجافا حقك.
+      en: Flip one switch and let friends on phone, console and Windows join your Java server.
+    tags:
+      - features
+    surfaces:
+      - overview
+      - panel
+    bodyPath:
+      ar: guides/crossplay/ar.md
+      en: guides/crossplay/en.md
+  - id: modpacks
+    title:
+      ar: المودباك — سيرفر جاهز بضغطة
+      en: Modpacks — a ready-made server in one click
+    summary:
+      ar: اختر مودباك من الكتالوج وإحنا نركّب المودات والإعدادات ونجهّز سيرفرك عليه.
+      en: Pick a modpack from the catalog and we install its mods and configs and set your server up for it.
+    tags:
+      - features
+    surfaces:
+      - overview
+      - panel
+    bodyPath:
+      ar: guides/modpacks/ar.md
+      en: guides/modpacks/en.md
+  - id: version-compat
+    title:
+      ar: توافق النسخ — نسخ جافا الثانية في سيرفرك
+      en: Version compatibility — other Java versions on your server
+    summary:
+      ar: فعّل زر واحد وخل أصحابك يدخلون بنسخة جافا أحدث أو أقدم من نسخة سيرفرك.
+      en: Flip one switch and let friends join on a Java version newer or older than your server.
+    tags:
+      - features
+    surfaces:
+      - overview
+      - panel
+    bodyPath:
+      ar: guides/version-compat/ar.md
+      en: guides/version-compat/en.md
+  - id: worlds
+    title:
+      ar: المابات — بدّل وارفع وصفّر
+      en: Worlds — switch, upload and reset
+    summary:
+      ar: بدّل الماب الشغّالة، ارفع ماب من جهازك، صفّر النذر والإند، واحذف اللي ما تحتاجه.
+      en: Switch the active world, upload one from your computer, reset the Nether and the End, and delete what you do not need.
+    tags:
+      - features
+    surfaces:
+      - panel
+      - files
+      - backups
+    bodyPath:
+      ar: guides/worlds/ar.md
+      en: guides/worlds/en.md

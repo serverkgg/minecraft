@@ -1,4 +1,5 @@
 import { type Bridge, BridgeKind } from "@serverkgg/bridge";
+import { pinCompanionConfigs, syncCompanions } from "../companions";
 import { launchArguments, readStamp } from "../install";
 import { javaBinary } from "../shared";
 import { heapFor } from "./heap";
@@ -12,6 +13,8 @@ export const lifecycle: Bridge.Lifecycle = {
 	ready: READY,
 	stopTimeoutSeconds: 60,
 	async command(context) {
+		await syncCompanions(context);
+
 		const stamp = await readStamp(context);
 
 		if (!stamp) {
@@ -25,6 +28,9 @@ export const lifecycle: Bridge.Lifecycle = {
 			...launchArguments(stamp.launch),
 			"nogui",
 		];
+	},
+	async onReady(context) {
+		await pinCompanionConfigs(context);
 	},
 	async stop(context) {
 		await context.command("stop", {

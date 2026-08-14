@@ -1,6 +1,5 @@
 import type { Bridge } from "@serverkgg/bridge";
-import { CatalogKind } from "../catalogTarget";
-import { type CatalogFile, type CatalogProvider, CatalogProviderId, type CatalogRelease } from "./provider";
+import { AddonKind, type CatalogFile, type CatalogProvider, CatalogProviderId, type CatalogRelease } from "./provider";
 import { asRateLimit } from "./rateLimit";
 
 const SEARCH_CACHE_SECONDS = 60;
@@ -208,7 +207,7 @@ export const hangarProvider: CatalogProvider = {
 	},
 
 	supports(target) {
-		return target.kind === CatalogKind.Plugin;
+		return target.kind === AddonKind.Plugin;
 	},
 
 	ready() {
@@ -289,6 +288,8 @@ export const hangarProvider: CatalogProvider = {
 			version: usable.version.name,
 			icon: details.avatarUrl,
 			pageUrl: `https://hangar.papermc.io/${namespace}`,
+			gameVersions: null,
+			loaders: null,
 			file: usable.file,
 			dependencies: (usable.version.pluginDependencies[PLATFORM] ?? [])
 				.filter((dependency) => dependency.required && dependency.projectId !== null)

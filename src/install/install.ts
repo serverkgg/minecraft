@@ -1,15 +1,19 @@
 import { type Bridge, BridgeKind } from "@serverkgg/bridge";
+import { applyModpack, detachModpack, ModpackPlanKind, modpackPlan, stageModpack } from "../modpacks";
 import { SEEDED_PROPERTIES } from "../settings";
 import {
-	catalogDirectory,
+	addonDirectory,
+	declaredBuild,
 	javaMajorFor,
 	latestRelease,
 	releaseOrder,
 	requestedBuild,
 	requestedGameVersion,
 	ServerVariant,
+	STAGING_ROOT,
 	variantOf,
 } from "../shared";
+import { discoverWorlds, resetActiveWorld, worldPaths } from "../worlds";
 import { installFabric } from "./installFabric";
 import { installForge } from "./installForge";
 import { installNeoForge } from "./installNeoForge";
@@ -44,6 +48,7 @@ const WIPE_DIRECTORIES = [
 	"cache",
 	".cache",
 	".fabric",
+	STAGING_ROOT,
 ];
 
 type Installer = (
@@ -60,6 +65,19 @@ const INSTALL_BY_VARIANT: Record<ServerVariant, Installer> = {
 	[ServerVariant.Paper]: (context, gameVersion, build) => installPaper(context, gameVersion, build),
 	[ServerVariant.Purpur]: (context, gameVersion, build) => installPurpur(context, gameVersion, build),
 	[ServerVariant.Vanilla]: (context, gameVersion) => installVanilla(context, gameVersion),
+};
+
+const resolveBuild = async (
+	context: Bridge.Context,
+	variant: ServerVariant,
+	version: string,
+	pinned: string | null,
+) => {
+	if (variant === ServerVariant.Vanilla) {
+		return null;
+	}
+
+	return declaredBuild(context) ?? pinned ?? (await requestedBuild(context, version));
 };
 
 const resolveVersion = async (context: Bridge.Context, stamp: InstallStamp | null, variant: ServerVariant) => {
@@ -101,9 +119,17 @@ const wipeData = async (context: Bridge.Context) => {
 		await context.files.remove(directory);
 	}
 
+	for (const world of await discoverWorlds(context)) {
+		for (const path of worldPaths(world)) {
+			await context.files.remove(path);
+		}
+	}
+
 	for (const entry of await context.files.list("*")) {
 		await context.files.remove(entry.path);
 	}
+
+	await resetActiveWorld(context);
 };
 
 const finalize = async (context: Bridge.Context) => {
@@ -113,7 +139,7 @@ const finalize = async (context: Bridge.Context) => {
 		await context.codec.properties.merge("server.properties", SEEDED_PROPERTIES);
 	}
 
-	await context.files.ensure(catalogDirectory(context), "logs");
+	await context.files.ensure(addonDirectory(context), "logs");
 };
 
 export const install: Bridge.Install = {
@@ -122,19 +148,25 @@ export const install: Bridge.Install = {
 		const variant = variantOf(context);
 		const stamp = await readStamp(context);
 		const version = await resolveVersion(context, stamp, variant);
-		const build = variant === ServerVariant.Vanilla ? null : await requestedBuild(context, version);
+		const plan = await modpackPlan(context, variant, version);
 		const next: InstallIdentity = {
 			variant,
 			version,
-			build,
+			build: await resolveBuild(context, variant, version, plan.pinnedBuild),
 		};
 
-		if (matchesStamp(stamp, next) && stamp) {
+		if (plan.kind === ModpackPlanKind.Detach) {
+			context.log("removing the modpack, and the world it built goes with it", {
+				modpack: plan.sidecar?.title ?? "",
+			});
+
+			await wipeData(context);
+		} else if (plan.kind !== ModpackPlanKind.Apply && matchesStamp(stamp, next) && stamp) {
 			if (await context.files.exists(stamp.launch.target)) {
 				context.log("install is current", {
 					variant,
 					version,
-					build,
+					build: next.build,
 				});
 
 				await finalize(context);
@@ -170,6 +202,22 @@ export const install: Bridge.Install = {
 			await context.files.remove(artifact);
 		}
 
+		const staged =
+			plan.kind === ModpackPlanKind.Apply && plan.ref ? await stageModpack(context, plan.ref, variant, version) : null;
+
+		const mismatched = plan.kind === ModpackPlanKind.Apply && staged === null && plan.sidecar !== null;
+
+		if (mismatched) {
+			context.log("the modpack that was on this server no longer fits it, so it goes, and its world with it", {
+				modpack: plan.sidecar?.title ?? "",
+			});
+
+			await wipeData(context);
+		}
+
+		const detaching = plan.kind === ModpackPlanKind.Detach || mismatched;
+
+		const build = staged ? staged.index.loaderVersion : next.build;
 		const javaMajor = await javaMajorFor(context, version);
 
 		context.log("installing minecraft", {
@@ -188,6 +236,12 @@ export const install: Bridge.Install = {
 			java: javaMajor,
 			launch,
 		});
+
+		if (staged) {
+			await applyModpack(context, staged);
+		} else if (detaching) {
+			await detachModpack(context);
+		}
 
 		await finalize(context);
 

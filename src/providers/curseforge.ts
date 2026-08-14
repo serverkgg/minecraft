@@ -5,9 +5,15 @@ import {
 	BridgeNetError,
 	BridgeSecretError,
 } from "@serverkgg/bridge";
-import { ServerVariant } from "../../shared";
-import { CatalogKind, type CatalogTarget } from "../catalogTarget";
-import { type CatalogFile, type CatalogProvider, CatalogProviderId, type CatalogRelease } from "./provider";
+import { ServerVariant } from "../shared";
+import {
+	AddonKind,
+	type AddonTarget,
+	type CatalogFile,
+	type CatalogProvider,
+	CatalogProviderId,
+	type CatalogRelease,
+} from "./provider";
 import { asRateLimit } from "./rateLimit";
 
 const SEARCH_CACHE_SECONDS = 60;
@@ -37,9 +43,9 @@ const REJECTED_STATUSES = [
 	403,
 ];
 
-const CLASS_ID: Record<CatalogKind, number> = {
-	[CatalogKind.Mod]: 6,
-	[CatalogKind.Plugin]: 5,
+const CLASS_ID: Record<AddonKind, number> = {
+	[AddonKind.Mod]: 6,
+	[AddonKind.Plugin]: 5,
 };
 
 const LOADER_TYPE: Partial<Record<ServerVariant, number>> = {
@@ -137,7 +143,7 @@ const request = async <Result>(
 	}
 };
 
-const applyCompatibility = (url: URL, target: CatalogTarget) => {
+const applyCompatibility = (url: URL, target: AddonTarget) => {
 	url.searchParams.set("gameVersion", target.gameVersion);
 
 	const loader = LOADER_TYPE[target.variant];
@@ -166,7 +172,7 @@ const fileOf = (entry: CurseFileEntry): CatalogFile | null => {
 	};
 };
 
-const bestFile = async (context: Bridge.Context, target: CatalogTarget, project: string) => {
+const bestFile = async (context: Bridge.Context, target: AddonTarget, project: string) => {
 	const url = new URL(`${CURSEFORGE}/mods/${encodeURIComponent(project)}/files`);
 
 	applyCompatibility(url, target);
@@ -223,7 +229,7 @@ export const curseForgeProvider: CatalogProvider = {
 	],
 
 	categories(target) {
-		if (target.kind === CatalogKind.Plugin) {
+		if (target.kind === AddonKind.Plugin) {
 			return [
 				{
 					value: "115",
@@ -331,7 +337,7 @@ export const curseForgeProvider: CatalogProvider = {
 	},
 
 	supports(target) {
-		return target.kind === CatalogKind.Plugin || LOADER_TYPE[target.variant] !== undefined;
+		return target.kind === AddonKind.Plugin || LOADER_TYPE[target.variant] !== undefined;
 	},
 
 	ready(context) {
@@ -411,6 +417,8 @@ export const curseForgeProvider: CatalogProvider = {
 			version: entry.displayName,
 			icon: details.data.logo?.thumbnailUrl ?? null,
 			pageUrl: details.data.links?.websiteUrl ?? null,
+			gameVersions: null,
+			loaders: null,
 			file,
 			dependencies: entry.dependencies
 				.filter((dependency) => dependency.relationType === REQUIRED_DEPENDENCY)

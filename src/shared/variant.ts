@@ -25,14 +25,19 @@ export const LOADER_VARIANTS = [
 	...MOD_VARIANTS,
 ];
 
+export const VARIANT_LABELS: Record<ServerVariant, string> = {
+	[ServerVariant.Fabric]: "Fabric",
+	[ServerVariant.Forge]: "Forge",
+	[ServerVariant.NeoForge]: "NeoForge",
+	[ServerVariant.Paper]: "Paper",
+	[ServerVariant.Purpur]: "Purpur",
+	[ServerVariant.Vanilla]: "Vanilla",
+};
+
 const VARIANTS = new Set<string>(Object.values(ServerVariant));
 
 export const variantOf = (context: Bridge.Context): ServerVariant => {
 	const declared = context.variable("SERVER_TYPE") ?? "";
 
 	return VARIANTS.has(declared) ? (declared as ServerVariant) : ServerVariant.Vanilla;
-};
-
-export const catalogDirectory = (context: Bridge.Context) => {
-	return MOD_VARIANTS.includes(variantOf(context)) ? "mods" : "plugins";
 };

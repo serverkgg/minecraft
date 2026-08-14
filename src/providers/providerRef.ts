@@ -1,15 +1,15 @@
 const SEPARATOR = ":";
 
-export interface CatalogId {
+export interface ProviderRef {
 	provider: string;
 	project: string;
 }
 
-export const encodeCatalogId = (provider: string, project: string) => {
+export const encodeProviderRef = (provider: string, project: string) => {
 	return `${provider}${SEPARATOR}${project}`;
 };
 
-export const decodeCatalogId = (id: string): CatalogId | null => {
+export const decodeProviderRef = (id: string): ProviderRef | null => {
 	const index = id.indexOf(SEPARATOR);
 
 	if (index <= 0 || index === id.length - 1) {

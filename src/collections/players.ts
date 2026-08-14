@@ -1,4 +1,5 @@
 import { type Bridge, BridgeKind } from "@serverkgg/bridge";
+import { choiceArgument, GAME_MODES, levelsArgument } from "../shared";
 
 const LIST_REPLY = /There are \d+ of a max of \d+ players online:(?<names>.*)$/;
 
@@ -31,6 +32,15 @@ export const players: Bridge.Collection = {
 		},
 		async op(context, row) {
 			await context.command(`op ${row.id}`);
+		},
+		async kill(context, row) {
+			await context.command(`kill ${row.id}`);
+		},
+		async xp(context, row, args) {
+			await context.command(`xp add ${row.id} ${levelsArgument(args)} levels`);
+		},
+		async gamemode(context, row, args) {
+			await context.command(`gamemode ${choiceArgument(args, "mode", GAME_MODES)} ${row.id}`);
 		},
 	},
 };

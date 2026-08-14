@@ -142,10 +142,16 @@ export const buildsFor = async (context: Bridge.Context, gameVersion: string) =>
 	return await resolver(context, gameVersion);
 };
 
-export const requestedBuild = async (context: Bridge.Context, gameVersion: string) => {
+export const declaredBuild = (context: Bridge.Context) => {
 	const declared = context.variable("LOADER_VERSION") ?? "";
 
-	if (declared.length > 0 && declared !== "latest") {
+	return declared.length > 0 && declared !== "latest" ? declared : null;
+};
+
+export const requestedBuild = async (context: Bridge.Context, gameVersion: string) => {
+	const declared = declaredBuild(context);
+
+	if (declared) {
 		return declared;
 	}
 

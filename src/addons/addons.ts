@@ -1,16 +1,17 @@
 import { type Bridge, BridgeFailureCode, BridgeFailureError, BridgeKind } from "@serverkgg/bridge";
-import { decodeCatalogId, encodeCatalogId } from "./catalogId";
+import { companionForProject, isCompanionFile } from "../companions";
+import type { AddonTarget, CatalogProvider, CatalogRelease } from "../providers";
 import {
-	DISABLED_SUFFIX,
-	enabledName,
-	readSidecar,
-	type Sidecar,
-	type SidecarEntry,
-	writeSidecar,
-} from "./catalogSidecar";
-import { type CatalogTarget, catalogTarget } from "./catalogTarget";
-import type { CatalogProvider, CatalogRelease } from "./providers";
-import { describeProviders, providerById, resolveProvider } from "./providers";
+	decodeProviderRef,
+	describeProviders,
+	encodeProviderRef,
+	providerById,
+	resolveProvider,
+	targetLoaders,
+} from "../providers";
+import { DISABLED_SUFFIX, enabledName } from "../shared";
+import { readSidecar, type Sidecar, type SidecarEntry, writeSidecar } from "./addonSidecar";
+import { addonTarget } from "./addonTarget";
 
 const PAGE_SIZE = 20;
 
@@ -31,17 +32,45 @@ const exclusive = <Result>(run: () => Promise<Result>): Promise<Result> => {
 	return next;
 };
 
+const isStale = (tracked: SidecarEntry | undefined, target: AddonTarget) => {
+	if (!tracked) {
+		return false;
+	}
+
+	return tracked.gameVersions
+		? !tracked.gameVersions.includes(target.gameVersion)
+		: tracked.gameVersion !== target.gameVersion;
+};
+
+const assertCompatible = (release: CatalogRelease, target: AddonTarget) => {
+	if (release.gameVersions && !release.gameVersions.includes(target.gameVersion)) {
+		throw new BridgeFailureError(
+			BridgeFailureCode.NoCatalogVersionAvailable,
+			`"${release.title}" ${release.version} is built for minecraft ${release.gameVersions.join(", ")} and this server runs ${target.gameVersion}`,
+		);
+	}
+
+	const accepted = targetLoaders(target);
+
+	if (release.loaders && !release.loaders.some((loader) => accepted.includes(loader))) {
+		throw new BridgeFailureError(
+			BridgeFailureCode.NoCatalogVersionAvailable,
+			`"${release.title}" ${release.version} is built for ${release.loaders.join(", ")} and this server is ${target.variant}`,
+		);
+	}
+};
+
 const entryFor = (
 	filename: string,
 	tracked: SidecarEntry | undefined,
-	target: CatalogTarget,
+	target: AddonTarget,
 	sizeBytes: number,
 ): Bridge.CatalogEntry => {
 	const enabled = !filename.endsWith(DISABLED_SUFFIX);
 	const name = enabledName(filename);
 
 	return {
-		id: tracked ? encodeCatalogId(tracked.provider, tracked.project) : name,
+		id: tracked ? encodeProviderRef(tracked.provider, tracked.project) : name,
 		provider: tracked?.provider ?? null,
 		path: `${target.directory}/${filename}`,
 		title: tracked?.title ?? name,
@@ -49,13 +78,13 @@ const entryFor = (
 		sizeBytes,
 		enabled,
 		gameVersion: tracked?.gameVersion ?? null,
-		stale: tracked ? tracked.gameVersion !== target.gameVersion : false,
+		stale: isStale(tracked, target),
 		pageUrl: tracked?.pageUrl ?? null,
 		icon: tracked?.icon ?? null,
 	};
 };
 
-const listFiles = async (context: Bridge.Context, target: CatalogTarget) => {
+const listFiles = async (context: Bridge.Context, target: AddonTarget) => {
 	const enabled = await context.files.list(`${target.directory}/*.jar`);
 	const disabled = await context.files.list(`${target.directory}/*.jar${DISABLED_SUFFIX}`);
 
@@ -66,7 +95,7 @@ const listFiles = async (context: Bridge.Context, target: CatalogTarget) => {
 };
 
 const findTracked = (sidecar: Sidecar, id: string) => {
-	const decoded = decodeCatalogId(id);
+	const decoded = decodeProviderRef(id);
 
 	return Object.entries(sidecar)
 		.filter(([filename, entry]) => {
@@ -75,7 +104,7 @@ const findTracked = (sidecar: Sidecar, id: string) => {
 		.map(([filename]) => filename);
 };
 
-const forget = async (context: Bridge.Context, target: CatalogTarget, sidecar: Sidecar, filename: string) => {
+const forget = async (context: Bridge.Context, target: AddonTarget, sidecar: Sidecar, filename: string) => {
 	for (const candidate of [
 		filename,
 		`${filename}${DISABLED_SUFFIX}`,
@@ -91,7 +120,7 @@ const forget = async (context: Bridge.Context, target: CatalogTarget, sidecar: S
 const gather = async (
 	context: Bridge.Context,
 	provider: CatalogProvider,
-	target: CatalogTarget,
+	target: AddonTarget,
 	project: string,
 ): Promise<PendingFile[]> => {
 	const release = await provider.resolve(context, target, project);
@@ -137,13 +166,21 @@ const gather = async (
 };
 
 const installProject = async (context: Bridge.Context, id: string): Promise<Bridge.CatalogEntry> => {
-	const decoded = decodeCatalogId(id);
+	const decoded = decodeProviderRef(id);
 
 	if (!decoded) {
-		throw new Error(`"${id}" is not a catalog id`);
+		throw new Error(`"${id}" is not a provider reference`);
 	}
 
-	const target = await catalogTarget(context);
+	const companion = companionForProject(context, decoded.project);
+
+	if (companion) {
+		throw new Error(
+			`${companion.title} is installed and updated by the ${companion.feature.switchLabel} switch in the settings tab`,
+		);
+	}
+
+	const target = await addonTarget(context);
 	const provider = providerById(decoded.provider);
 
 	if (!provider?.supports(target)) {
@@ -160,12 +197,16 @@ const installProject = async (context: Bridge.Context, id: string): Promise<Brid
 		);
 	}
 
+	for (const entry of pending) {
+		assertCompatible(entry.release, target);
+	}
+
 	await context.files.ensure(target.directory);
 
 	const sidecar = await readSidecar(context, target.directory);
 
 	for (const entry of pending) {
-		for (const filename of findTracked(sidecar, encodeCatalogId(provider.id, entry.project))) {
+		for (const filename of findTracked(sidecar, encodeProviderRef(provider.id, entry.project))) {
 			await forget(context, target, sidecar, filename);
 		}
 	}
@@ -192,6 +233,7 @@ const installProject = async (context: Bridge.Context, id: string): Promise<Brid
 			version: entry.release.version,
 			title: entry.release.title,
 			gameVersion: target.gameVersion,
+			gameVersions: entry.release.gameVersions,
 			icon: entry.release.icon,
 			pageUrl: entry.release.pageUrl,
 		};
@@ -199,7 +241,7 @@ const installProject = async (context: Bridge.Context, id: string): Promise<Brid
 
 	await writeSidecar(context, target.directory, sidecar);
 
-	context.log("installed from the catalog", {
+	context.log("installed an addon", {
 		provider: provider.id,
 		title: primary.release.title,
 		version: primary.release.version,
@@ -215,7 +257,7 @@ const installProject = async (context: Bridge.Context, id: string): Promise<Brid
 };
 
 const removeEntry = async (context: Bridge.Context, id: string) => {
-	const target = await catalogTarget(context);
+	const target = await addonTarget(context);
 	const sidecar = await readSidecar(context, target.directory);
 	const tracked = findTracked(sidecar, id);
 
@@ -240,7 +282,7 @@ const removeEntry = async (context: Bridge.Context, id: string) => {
 };
 
 const toggleEntry = async (context: Bridge.Context, id: string, enabled: boolean) => {
-	const target = await catalogTarget(context);
+	const target = await addonTarget(context);
 	const sidecar = await readSidecar(context, target.directory);
 	const tracked = findTracked(sidecar, id);
 	const names =
@@ -264,12 +306,12 @@ const toggleEntry = async (context: Bridge.Context, id: string, enabled: boolean
 	}
 };
 
-export const catalog: Bridge.Catalog = {
+export const addons: Bridge.Catalog = {
 	kind: BridgeKind.Catalog,
 	pageSize: PAGE_SIZE,
 
 	async search(context, query) {
-		const target = await catalogTarget(context);
+		const target = await addonTarget(context);
 		const provider = resolveProvider(context, target, query.provider);
 		const providers = describeProviders(context, target);
 
@@ -306,26 +348,30 @@ export const catalog: Bridge.Catalog = {
 		});
 
 		return {
-			hits: results.hits.map((hit) => {
-				return {
-					...hit,
-					id: encodeCatalogId(provider.id, hit.id),
-					provider: provider.id,
-				};
-			}),
+			hits: results.hits
+				.filter((hit) => !companionForProject(context, hit.id))
+				.map((hit) => {
+					return {
+						...hit,
+						id: encodeProviderRef(provider.id, hit.id),
+						provider: provider.id,
+					};
+				}),
 			total: results.total,
 			...facets,
 		};
 	},
 
 	async installed(context) {
-		const target = await catalogTarget(context);
+		const target = await addonTarget(context);
 		const sidecar = await readSidecar(context, target.directory);
 		const entries = await listFiles(context, target);
 
-		return entries.map((entry) => {
-			return entryFor(entry.name, sidecar[enabledName(entry.name)], target, entry.sizeBytes);
-		});
+		return entries
+			.filter((entry) => !isCompanionFile(context, enabledName(entry.name)))
+			.map((entry) => {
+				return entryFor(entry.name, sidecar[enabledName(entry.name)], target, entry.sizeBytes);
+			});
 	},
 
 	async install(context, id) {
