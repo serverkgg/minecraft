@@ -3,7 +3,6 @@ FROM eclipse-temurin:17-jre-noble AS java17
 FROM eclipse-temurin:21-jre-noble AS java21
 FROM eclipse-temurin:25-jre-noble
 
-ARG TARGETARCH
 ARG BRIDGE_VERSION
 
 LABEL gg.serverk.bridge.version="${BRIDGE_VERSION}"
@@ -36,7 +35,7 @@ RUN set -eux; \
 ENV TZ=UTC \
     HOME=/home/container
 
-COPY dist/bridge-${TARGETARCH} /serverk/bridge
+COPY dist/bridge /serverk/bridge
 
 RUN chmod 0755 /serverk/bridge
 
