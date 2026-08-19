@@ -29,13 +29,28 @@ container:
     - key: game
       containerPort: 25565
       protocol: tcp
+      name:
+        ar: جافا
+        en: Java
+      hint:
+        ar: في ماينكرافت جافا اكتب العنوان بس في خانة السيرفر، ما تحتاج منفذ.
+        en: In Minecraft Java, type the address alone in the server field, no port needed.
       hostRange:
         default: 25565
         min: 25565
         max: 25664
+      srv:
+        service: _minecraft
     - key: bedrock
       containerPort: 19132
       protocol: udp
+      name:
+        ar: بيدروك
+        en: Bedrock
+      hint:
+        ar: في بيدروك حط العنوان في خانة "عنوان السيرفر" والمنفذ في خانة "المنفذ".
+        en: In Bedrock, put the address in the "Server Address" field and the port in the "Port" field.
+      join: separate
       hostRange:
         default: 19132
         min: 19132
