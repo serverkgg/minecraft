@@ -1,25 +1,15 @@
 import { type Bridge, BridgeKind } from "@serverkgg/bridge";
-import { applyModpack, detachModpack, ModpackPlanKind, modpackPlan, stageModpack } from "../modpacks";
+import { applyModpack, detachModpack, ModpackPlanKind, stageModpack } from "../modpacks";
 import { SEEDED_PROPERTIES } from "../settings";
-import {
-	addonDirectory,
-	declaredBuild,
-	javaMajorFor,
-	latestRelease,
-	releaseOrder,
-	requestedBuild,
-	requestedGameVersion,
-	ServerVariant,
-	STAGING_ROOT,
-	variantOf,
-} from "../shared";
-import { discoverWorlds, resetActiveWorld, worldPaths } from "../worlds";
+import { addonDirectory, javaMajorFor, ServerVariant } from "../shared";
+import { applyTransition, transitionFor, wipeData } from "./applyTransition";
 import { installFabric } from "./installFabric";
 import { installForge } from "./installForge";
+import { resolveNext } from "./installIdentity";
 import { installNeoForge } from "./installNeoForge";
 import { installPaper } from "./installPaper";
 import { installPurpur } from "./installPurpur";
-import { type InstallIdentity, type InstallStamp, matchesStamp, readStamp, writeStamp } from "./installStamp";
+import { matchesStamp, readStamp, writeStamp } from "./installStamp";
 import { installVanilla } from "./installVanilla";
 import type { LaunchPlan } from "./launchPlan";
 
@@ -31,24 +21,6 @@ const LOADER_ARTIFACTS = [
 	"run.sh",
 	"run.bat",
 	"user_jvm_args.txt",
-];
-
-const WIPE_DIRECTORIES = [
-	"world",
-	"world_nether",
-	"world_the_end",
-	"mods",
-	"plugins",
-	"config",
-	"defaultconfigs",
-	"libraries",
-	"versions",
-	"logs",
-	"crash-reports",
-	"cache",
-	".cache",
-	".fabric",
-	STAGING_ROOT,
 ];
 
 type Installer = (
@@ -67,71 +39,6 @@ const INSTALL_BY_VARIANT: Record<ServerVariant, Installer> = {
 	[ServerVariant.Vanilla]: (context, gameVersion) => installVanilla(context, gameVersion),
 };
 
-const resolveBuild = async (
-	context: Bridge.Context,
-	variant: ServerVariant,
-	version: string,
-	pinned: string | null,
-) => {
-	if (variant === ServerVariant.Vanilla) {
-		return null;
-	}
-
-	return declaredBuild(context) ?? pinned ?? (await requestedBuild(context, version));
-};
-
-const resolveVersion = async (context: Bridge.Context, stamp: InstallStamp | null, variant: ServerVariant) => {
-	const requested = requestedGameVersion(context);
-
-	if (requested) {
-		return requested;
-	}
-
-	if (stamp && stamp.variant === variant) {
-		return stamp.version;
-	}
-
-	return await latestRelease(context);
-};
-
-const wipeReason = async (context: Bridge.Context, stamp: InstallStamp, next: InstallIdentity) => {
-	if (stamp.variant !== next.variant) {
-		return "the new server type cannot read a world made by the old one";
-	}
-
-	if (stamp.version === next.version) {
-		return null;
-	}
-
-	const order = await releaseOrder(context);
-	const from = order.get(stamp.version);
-	const to = order.get(next.version);
-
-	if (from === undefined || to === undefined) {
-		return null;
-	}
-
-	return to > from ? "minecraft cannot open a world on an older version" : null;
-};
-
-const wipeData = async (context: Bridge.Context) => {
-	for (const directory of WIPE_DIRECTORIES) {
-		await context.files.remove(directory);
-	}
-
-	for (const world of await discoverWorlds(context)) {
-		for (const path of worldPaths(world)) {
-			await context.files.remove(path);
-		}
-	}
-
-	for (const entry of await context.files.list("*")) {
-		await context.files.remove(entry.path);
-	}
-
-	await resetActiveWorld(context);
-};
-
 const finalize = async (context: Bridge.Context) => {
 	await context.files.write("eula.txt", "eula=true\n");
 
@@ -145,15 +52,10 @@ const finalize = async (context: Bridge.Context) => {
 export const install: Bridge.Install = {
 	kind: BridgeKind.Install,
 	async run(context) {
-		const variant = variantOf(context);
 		const stamp = await readStamp(context);
-		const version = await resolveVersion(context, stamp, variant);
-		const plan = await modpackPlan(context, variant, version);
-		const next: InstallIdentity = {
-			variant,
-			version,
-			build: await resolveBuild(context, variant, version, plan.pinnedBuild),
-		};
+		const { next, plan } = await resolveNext(context, stamp);
+		const { variant, version } = next;
+		const javaMajor = await javaMajorFor(context, version);
 
 		if (plan.kind === ModpackPlanKind.Detach) {
 			context.log("removing the modpack, and the world it built goes with it", {
@@ -180,22 +82,17 @@ export const install: Bridge.Install = {
 				target: stamp.launch.target,
 			});
 		} else if (stamp) {
+			const transition = await transitionFor(context, stamp, next);
+
 			context.log("reinstalling", {
 				from: `${stamp.variant} ${stamp.version}`,
 				to: `${variant} ${version}`,
+				world: transition.world,
+				addons: transition.addons,
+				relocation: transition.relocation ?? "",
 			});
 
-			const reason = await wipeReason(context, stamp, next);
-
-			if (reason) {
-				await wipeData(context);
-
-				context.log("starting a fresh server, the backup taken before this change has your old files", {
-					reason,
-					from: `${stamp.variant} ${stamp.version}`,
-					to: `${variant} ${version}`,
-				});
-			}
+			await applyTransition(context, transition);
 		}
 
 		for (const artifact of LOADER_ARTIFACTS) {
@@ -218,7 +115,6 @@ export const install: Bridge.Install = {
 		const detaching = plan.kind === ModpackPlanKind.Detach || mismatched;
 
 		const build = staged ? staged.index.loaderVersion : next.build;
-		const javaMajor = await javaMajorFor(context, version);
 
 		context.log("installing minecraft", {
 			variant,

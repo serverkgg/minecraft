@@ -22,7 +22,7 @@ The world takes its name from the folder inside the zip. If a world with that na
 
 > [!note] If the world comes from a Minecraft version older than your server, Minecraft upgrades it the moment it opens it, and there is no way back. Take a backup first.
 
-> [!warning] A Paper or Purpur world keeps its Nether and End in sibling folders ending in `_nether` and `_the_end`, while a Vanilla, Fabric or Forge world keeps them inside itself. Moving a world between the two layouts means the dimensions will not show up until the folders are rearranged.
+> [!warning] Before Minecraft 26.1 a Paper or Purpur world keeps its Nether and End in sibling folders ending in `_nether` and `_the_end`, while a Vanilla, Fabric or Forge world keeps them inside itself; from 26.1 on every type keeps them inside the world. A world you upload in the other layout will not show its dimensions until the folders are rearranged. When you change the server type from the Version tab we move them for you.
 
 ## Download a world to your computer
 
@@ -30,7 +30,7 @@ Press the download button on the world's row. We pack the world into a zip, your
 
 > [!note] Download with the server off. If the world is live while you download it, its files change as we pack them and the copy you get can be incomplete.
 
-> [!warning] On Paper and Purpur the Nether and the End are folders next to the world, and the download takes the overworld only. If you want them too, download their folders from the files page:
+> [!warning] On Paper and Purpur before 26.1 the Nether and the End are folders next to the world, and the download takes the overworld only. If you want them too, download their folders from the files page:
 
 @[open](files)
 

@@ -1,5 +1,14 @@
 import type { Bridge } from "@serverkgg/bridge";
-import { PLUGIN_VARIANTS, variantOf } from "../shared";
+import {
+	DIMENSION_SUFFIXES,
+	END_SUFFIX,
+	NETHER_SUFFIX,
+	UNIFIED_END,
+	UNIFIED_NETHER,
+	VANILLA_END,
+	VANILLA_NETHER,
+	WorldLayout,
+} from "../shared";
 
 const PROPERTIES_FILE = "server.properties";
 
@@ -14,19 +23,6 @@ const NAME_LIMIT = 32;
 const UNSAFE_CHARACTERS = /[^A-Za-z0-9._-]+/g;
 
 const EDGE_CHARACTERS = /^[.\-_]+|[.\-_]+$/g;
-
-const NETHER_SUFFIX = "_nether";
-
-const END_SUFFIX = "_the_end";
-
-const VANILLA_NETHER = "DIM-1";
-
-const VANILLA_END = "DIM1";
-
-const DIMENSION_SUFFIXES = [
-	NETHER_SUFFIX,
-	END_SUFFIX,
-];
 
 export const DEFAULT_WORLD = "world";
 
@@ -172,8 +168,15 @@ export const resetActiveWorld = async (context: Bridge.Context) => {
 	await setActiveWorld(context, DEFAULT_WORLD);
 };
 
-export const worldDimensions = (context: Bridge.Context, name: string): WorldDimensions => {
-	if (PLUGIN_VARIANTS.includes(variantOf(context))) {
+export const worldDimensions = (name: string, layout: WorldLayout): WorldDimensions => {
+	if (layout === WorldLayout.Unified) {
+		return {
+			nether: `${name}/${UNIFIED_NETHER}`,
+			end: `${name}/${UNIFIED_END}`,
+		};
+	}
+
+	if (layout === WorldLayout.Bukkit) {
 		return {
 			nether: `${name}${NETHER_SUFFIX}`,
 			end: `${name}${END_SUFFIX}`,

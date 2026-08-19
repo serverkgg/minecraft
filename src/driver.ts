@@ -5,7 +5,7 @@ import { announce } from "./announce";
 import { backup } from "./backup";
 import { players, whitelist } from "./collections";
 import { events } from "./events";
-import { install } from "./install";
+import { install, transitionPreview } from "./install";
 import { lifecycle } from "./lifecycle";
 import { modpackStatus, modpacks } from "./modpacks";
 import { gameVersion, loaderBuild, serverType } from "./options";
@@ -28,6 +28,7 @@ export const driver: BridgeDriver = {
 		serverType,
 		gameVersion,
 		loaderBuild,
+		transitionPreview,
 		version,
 		settings,
 		players,

@@ -19,7 +19,7 @@ We take a backup first, then:
 3. We download every mod in the pack and lay its configs down in their place
 4. We start your server again
 
-> [!warning] Any mod you installed yourself from the Mods tab goes with the install. And if the pack needs a different server type or an older version than yours, the world goes too. The backup we just took has all of it.
+> [!warning] Any mod you installed yourself from the Mods tab goes with the install. Your world stays unless the pack needs an older version than yours — then a fresh one starts — and if the pack moves you off a mod loader, everything your mods added to the world is lost. The backup we just took has all of it.
 
 The install takes one to ten minutes depending on the pack's size. You can watch every step on screen.
 

@@ -10,10 +10,11 @@
 		"schema": "serverk-bridge schema",
 		"check": "bunx biome check",
 		"fix": "bunx biome check --write --unsafe",
-		"tsc": "tsc"
+		"tsc": "tsc",
+		"test": "bun test"
 	},
 	"dependencies": {
-		"@serverkgg/bridge": "0.0.5"
+		"@serverkgg/bridge": "0.0.6"
 	},
 	"devDependencies": {
 		"@biomejs/biome": "2.5.7",

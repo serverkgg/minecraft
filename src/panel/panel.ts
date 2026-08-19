@@ -104,10 +104,13 @@ const versionTab: Bridge.Tab = {
 			target: BridgeFormTarget.Variables,
 			module: "version",
 			reinstall: true,
-			confirm: BridgeConfirm.Normal,
+			confirm: BridgeConfirm.Strong,
 			confirmText: {
-				ar: "ناخذ نسخة احتياطية أول. تغيير نوع السيرفر أو الرجوع لنسخة أقدم يبدأ سيرفر جديد ويحذف الماب والإعدادات والمودات. الترقية لنسخة أحدث بنفس النوع ما تمس شي. تقدر ترجع للنسخة الاحتياطية متى ما تبي.",
-				en: "We take a backup first. Switching the server type or going back to an older version starts a fresh server — the world, settings and mods are deleted. Moving to a newer version of the same type leaves everything alone. You can restore the backup whenever you want.",
+				ar: "ناخذ نسخة احتياطية أول. حسب التغيير، مابك إما تبقى مكانها، أو ننقل ملفاتها للمكان الجديد، أو يروح كل اللي أضافته المودات لها. والرجوع لنسخة أقدم يبدأ ماب جديدة دايمًا.",
+				en: "We take a backup first. Depending on the change your world may stay where it is, be moved into place, or lose what mods added to it. Going back to an older version always starts a fresh world.",
+			},
+			preview: {
+				module: "transitionPreview",
 			},
 			fields: [
 				{
@@ -133,8 +136,8 @@ const versionTab: Bridge.Tab = {
 						en: "Minecraft version",
 					},
 					help: {
-						ar: "اتركها فاضية لآخر إصدار.",
-						en: "Leave empty for the latest release.",
+						ar: "اتركها فاضية عشان تبقى على نسختك الحالية (وآخر إصدار على سيرفر جديد)، واختر وحدة إذا تبي تغيّرها.",
+						en: "Leave it empty to keep the version you are on (the latest release on a fresh server); pick one to change it.",
 					},
 					options: {
 						module: "gameVersion",
@@ -203,8 +206,8 @@ const modpacksTab: Bridge.Tab = {
 			variable: MODPACK_VARIABLE,
 			confirm: BridgeConfirm.Strong,
 			confirmText: {
-				ar: "ناخذ نسخة احتياطية أول. تركيب المودباك يبني سيرفرك من جديد: يمسح مجلدات المودات والإعدادات كاملة، حتى المودات اللي ركّبتها بنفسك، وإذا المودباك يبي نوع سيرفر ثاني أو نسخة أقدم يروح الماب معها. وشيل المودباك يشيله هو وموداته والماب اللي بنيته عليه، ويرجّع سيرفرك عادي بماب جديدة. تقدر ترجع للنسخة الاحتياطية متى ما تبي.",
-				en: "We take a backup first. Installing a modpack rebuilds your server: the mods and config folders are wiped, including mods you installed yourself, and if the pack needs a different server type or an older version the world goes with them. Removing the modpack takes it, its mods and the world you built on it, and leaves your server plain with a fresh world. You can restore the backup whenever you want.",
+				ar: "ناخذ نسخة احتياطية أول. تركيب المودباك يبني سيرفرك من جديد: يمسح مجلدات المودات والإعدادات كاملة، حتى المودات اللي ركّبتها بنفسك. مابك تبقى مكانها إلا إذا المودباك يبي نسخة أقدم من نسختك، وإذا كان سيرفرك على مود لودر وطلعت منه يروح كل اللي أضافته المودات لمابك. وشيل المودباك يشيله هو وموداته والماب اللي بنيته عليه، ويرجّع سيرفرك عادي بماب جديدة. تقدر ترجع للنسخة الاحتياطية متى ما تبي.",
+				en: "We take a backup first. Installing a modpack rebuilds your server: the mods and config folders are wiped, including mods you installed yourself. Your world stays unless the pack needs an older version than yours, and if you leave a mod loader everything the mods added to your world is lost. Removing the modpack takes it, its mods and the world you built on it, and leaves your server plain with a fresh world. You can restore the backup whenever you want.",
 			},
 			empty: {
 				ar: "ما ركّبت أي مودباك. دوّر على واحد فوق واختره، وإحنا نجهّز سيرفرك عليه.",
@@ -245,8 +248,8 @@ const settingsTab: Bridge.Tab = {
 						en: "Let Bedrock players in",
 					},
 					help: {
-						ar: "نركّب Geyser و Floodgate ونحدّثهم لك. أصحابك من الجوال أو الكونسول أو ويندوز يدخلون على منفذ بيدروك اللي يظهر بصفحة سيرفرك، وأسماءهم داخل اللعبة تبدأ بنقطة.",
-						en: "We install and update Geyser and Floodgate for you. Friends on phone, console or Windows join on the Bedrock port shown on your server page, and their in-game names start with a dot.",
+						ar: "نركّب Geyser و Floodgate ونحدّثهم لك. أول ما تفعّله يظهر عنوان بيدروك في صفحة سيرفرك، وأصحابك من الجوال أو الكونسول أو ويندوز يدخلون عليه، وأسماءهم داخل اللعبة تبدأ بنقطة.",
+						en: "We install and update Geyser and Floodgate for you. The Bedrock address appears on your server page once crossplay is on, friends on phone, console or Windows join on it, and their in-game names start with a dot.",
 					},
 					warning: {
 						ar: "كروس بلاي ياخذ رام زيادة. إذا سيرفرك 1GB بس، توقّع لاق.",

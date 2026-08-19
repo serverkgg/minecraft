@@ -1,5 +1,5 @@
 import type { Bridge } from "@serverkgg/bridge";
-import type { ServerVariant } from "../shared";
+import { ServerVariant } from "../shared";
 import { LaunchKind, type LaunchPlan } from "./launchPlan";
 
 const STAMP_FILE = ".serverk-install.json";
@@ -16,6 +16,12 @@ export interface InstallStamp extends InstallIdentity {
 }
 
 const LAUNCH_KINDS = new Set<string>(Object.values(LaunchKind));
+
+const VARIANTS = Object.values(ServerVariant);
+
+const parseVariant = (value: unknown) => {
+	return VARIANTS.find((variant) => variant === value) ?? null;
+};
 
 const parseLaunch = (value: unknown): LaunchPlan | null => {
 	if (value === null || typeof value !== "object") {
@@ -46,8 +52,9 @@ export const readStamp = async (context: Bridge.Context): Promise<InstallStamp |
 	try {
 		const parsed = JSON.parse(await context.files.read(STAMP_FILE)) as Partial<InstallStamp>;
 		const launch = parseLaunch(parsed.launch);
+		const variant = parseVariant(parsed.variant);
 
-		if (typeof parsed.variant !== "string" || typeof parsed.version !== "string") {
+		if (variant === null || typeof parsed.version !== "string") {
 			return null;
 		}
 
@@ -56,7 +63,7 @@ export const readStamp = async (context: Bridge.Context): Promise<InstallStamp |
 		}
 
 		return {
-			variant: parsed.variant,
+			variant,
 			version: parsed.version,
 			build: typeof parsed.build === "string" ? parsed.build : null,
 			java: parsed.java,

@@ -20,7 +20,7 @@ Java players join with the address you already know:
 
 @[field](server.address)
 
-Bedrock players use the same IP but the **Bedrock port**, shown on your server page next to the address. Then, inside the game:
+Bedrock players use the same IP but the **Bedrock port**. The Bedrock address appears on your server page next to the Java one once crossplay is on — while it is off, or on a Vanilla or Forge server, nothing is listening on that port, so we do not show it. Then, inside the game:
 
 1. Open **Play**, then **Servers**
 2. Scroll down and tap **Add Server**

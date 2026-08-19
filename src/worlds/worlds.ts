@@ -1,4 +1,5 @@
 import { type Bridge, BridgeKind } from "@serverkgg/bridge";
+import { installedLayout } from "../install/installLayout";
 import {
 	activeWorld,
 	discoverWorlds,
@@ -156,7 +157,7 @@ export const worlds: Bridge.Collection = {
 		},
 
 		async resetNether(context, row) {
-			const { nether } = worldDimensions(context, row.id);
+			const { nether } = worldDimensions(row.id, await installedLayout(context));
 
 			await context.files.remove(nether);
 
@@ -167,7 +168,7 @@ export const worlds: Bridge.Collection = {
 		},
 
 		async resetEnd(context, row) {
-			const { end } = worldDimensions(context, row.id);
+			const { end } = worldDimensions(row.id, await installedLayout(context));
 
 			await context.files.remove(end);
 

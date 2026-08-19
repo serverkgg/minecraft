@@ -55,6 +55,16 @@ container:
         default: 19132
         min: 19132
         max: 19231
+      activeWhen:
+        - variable: SERVER_TYPE
+          values:
+            - paper
+            - purpur
+            - fabric
+            - neoforge
+        - variable: CROSSPLAY
+          values:
+            - "true"
 
 backup:
   except:
@@ -236,6 +246,21 @@ guides:
     bodyPath:
       ar: guides/getting-started/ar.md
       en: guides/getting-started/en.md
+  - id: server-type
+    title:
+      ar: نوع السيرفر والنسخة — وش يصير لمابك
+      en: Server type and version — what happens to your world
+    summary:
+      ar: بدّل بين فانيلا و Paper و Purpur و Fabric و Forge و NeoForge، أو غيّر نسختك، وأنت عارف وش يبقى ووش يروح.
+      en: Move between Vanilla, Paper, Purpur, Fabric, Forge and NeoForge, or change your version, knowing what stays and what goes.
+    tags:
+      - features
+    surfaces:
+      - overview
+      - panel
+    bodyPath:
+      ar: guides/server-type/ar.md
+      en: guides/server-type/en.md
   - id: crossplay
     title:
       ar: كروس بلاي — لاعبي بيدروك في سيرفرك
