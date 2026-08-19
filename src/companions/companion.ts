@@ -26,6 +26,15 @@ export interface CompanionDownload {
 	artifact: string;
 }
 
+export interface CompanionRequirement {
+	id: string;
+	title: string;
+	filename: string;
+	project: string;
+	loader: string;
+	files: RegExp;
+}
+
 export interface CompanionModrinth {
 	project: string;
 	loader: string;
@@ -42,6 +51,7 @@ export interface CompanionArtifact {
 	configs: CompanionConfig[];
 	download: CompanionDownload | null;
 	modrinth: CompanionModrinth | null;
+	requires: CompanionRequirement[];
 }
 
 export interface Companion {
@@ -73,6 +83,15 @@ export const VERSION_COMPAT: CompanionFeature = {
 		ServerVariant.Paper,
 		ServerVariant.Purpur,
 	],
+};
+
+export const FABRIC_API: CompanionRequirement = {
+	id: "fabric-api",
+	title: "Fabric API",
+	filename: "fabric-api.jar",
+	project: "P7dR8mSH",
+	loader: "fabric",
+	files: /^fabric-api([-_][\w.+]+)?\.jar$/i,
 };
 
 export const FLOODGATE_PREFIX = ".";
@@ -153,6 +172,7 @@ const geyserPluginArtifact: CompanionArtifact = {
 		loader: "paper",
 		matchGameVersion: false,
 	},
+	requires: [],
 };
 
 const floodgatePluginArtifact: CompanionArtifact = {
@@ -168,6 +188,7 @@ const floodgatePluginArtifact: CompanionArtifact = {
 		artifact: "spigot",
 	},
 	modrinth: null,
+	requires: [],
 };
 
 const geyser: Companion = {
@@ -199,6 +220,9 @@ const geyser: Companion = {
 				loader: "fabric",
 				matchGameVersion: false,
 			},
+			requires: [
+				FABRIC_API,
+			],
 		},
 		[ServerVariant.NeoForge]: {
 			filename: "Geyser-NeoForge.jar",
@@ -217,6 +241,7 @@ const geyser: Companion = {
 				loader: "neoforge",
 				matchGameVersion: false,
 			},
+			requires: [],
 		},
 	},
 };
@@ -247,6 +272,9 @@ const floodgate: Companion = {
 				loader: "fabric",
 				matchGameVersion: false,
 			},
+			requires: [
+				FABRIC_API,
+			],
 		},
 		[ServerVariant.NeoForge]: {
 			filename: "floodgate-neoforge.jar",
@@ -262,6 +290,7 @@ const floodgate: Companion = {
 				loader: "neoforge",
 				matchGameVersion: false,
 			},
+			requires: [],
 		},
 	},
 };
@@ -275,6 +304,7 @@ const viaVersionPluginArtifact: CompanionArtifact = {
 		loader: "paper",
 		matchGameVersion: false,
 	},
+	requires: [],
 };
 
 const viaBackwardsPluginArtifact: CompanionArtifact = {
@@ -286,6 +316,7 @@ const viaBackwardsPluginArtifact: CompanionArtifact = {
 		loader: "paper",
 		matchGameVersion: false,
 	},
+	requires: [],
 };
 
 const viaVersion: Companion = {

@@ -8,6 +8,7 @@ import {
 	type CompanionArtifact,
 	type CompanionFeature,
 	type CompanionModrinth,
+	type CompanionRequirement,
 	CompanionSource,
 	companionsOf,
 	featureEnabled,
@@ -29,6 +30,19 @@ interface ResolvedCompanion {
 	url: string;
 	digest: string | null;
 	sizeBytes: number | null;
+}
+
+interface ResolvedRequirement {
+	requirement: CompanionRequirement;
+	version: string;
+	url: string;
+	digest: string | null;
+	sizeBytes: number | null;
+}
+
+interface ResolvedFeature {
+	companions: ResolvedCompanion[];
+	requirements: ResolvedRequirement[];
 }
 
 interface ConfigPass {
@@ -120,13 +134,45 @@ const resolveCompanion = async (
 	return null;
 };
 
+const requirementPresent = async (context: Bridge.Context, requirement: CompanionRequirement, directory: string) => {
+	const entries = await context.files.list(`${directory}/*`);
+
+	return entries.some((entry) => requirement.files.test(enabledName(entry.name)));
+};
+
+const resolveRequirement = async (
+	context: Bridge.Context,
+	requirement: CompanionRequirement,
+	gameVersion: string | null,
+): Promise<ResolvedRequirement | null> => {
+	if (gameVersion === null) {
+		return null;
+	}
+
+	const release = await modrinthLoaderRelease(context, requirement.project, requirement.loader, gameVersion);
+
+	if (!release) {
+		return null;
+	}
+
+	return {
+		requirement,
+		version: release.version,
+		url: release.file.url,
+		digest: release.file.digest,
+		sizeBytes: release.file.sizeBytes,
+	};
+};
+
 const resolveFeature = async (
 	context: Bridge.Context,
 	members: Companion[],
+	directory: string,
 	gameVersion: string | null,
-): Promise<ResolvedCompanion[] | null> => {
+): Promise<ResolvedFeature | null> => {
 	const variant = variantOf(context);
 	const resolved: ResolvedCompanion[] = [];
+	const requirements = new Map<string, ResolvedRequirement>();
 
 	for (const companion of members) {
 		const artifact = companion.artifacts[variant];
@@ -155,9 +201,35 @@ const resolveFeature = async (
 		}
 
 		resolved.push(candidate);
+
+		for (const requirement of artifact.requires) {
+			if (requirements.has(requirement.id) || (await requirementPresent(context, requirement, directory))) {
+				continue;
+			}
+
+			const found = await resolveRequirement(context, requirement, gameVersion);
+
+			if (!found) {
+				context.log.warn("a companion needs a library we could not find for this version", {
+					feature: companion.feature.id,
+					companion: companion.id,
+					requirement: requirement.title,
+					gameVersion,
+				});
+
+				return null;
+			}
+
+			requirements.set(requirement.id, found);
+		}
 	}
 
-	return resolved;
+	return {
+		companions: resolved,
+		requirements: [
+			...requirements.values(),
+		],
+	};
 };
 
 const sweepDuplicates = async (context: Bridge.Context, companion: Companion, directory: string, keep: string) => {
@@ -214,16 +286,40 @@ const writeConfigs = async (
 	};
 };
 
+const applyRequirements = async (context: Bridge.Context, requirements: ResolvedRequirement[], directory: string) => {
+	for (const entry of requirements) {
+		await context.files.download(`${directory}/${entry.requirement.filename}`, entry.url, {
+			...(entry.digest === null
+				? {}
+				: {
+						digest: entry.digest,
+					}),
+			...(entry.sizeBytes === null
+				? {}
+				: {
+						sizeBytes: entry.sizeBytes,
+					}),
+		});
+
+		context.log("installed a library a companion needs", {
+			requirement: entry.requirement.title,
+			version: entry.version,
+		});
+	}
+};
+
 const applyFeature = async (
 	context: Bridge.Context,
-	resolved: ResolvedCompanion[],
+	resolved: ResolvedFeature,
 	directory: string,
 	sidecar: CompanionSidecar,
 	gameVersion: string | null,
 ) => {
 	await context.files.ensure(directory);
 
-	for (const entry of resolved) {
+	await applyRequirements(context, resolved.requirements, directory);
+
+	for (const entry of resolved.companions) {
 		const path = `${directory}/${entry.artifact.filename}`;
 		const tracked = sidecar.entries[entry.companion.id];
 		const current: CompanionRecord = {
@@ -267,7 +363,7 @@ const applyFeature = async (
 		sidecar.entries[entry.companion.id] = current;
 	}
 
-	for (const entry of resolved) {
+	for (const entry of resolved.companions) {
 		const pass = await writeConfigs(context, entry.companion, entry.artifact);
 
 		if (pass.pending > 0) {
@@ -293,7 +389,7 @@ const syncFeature = async (context: Bridge.Context, feature: CompanionFeature) =
 
 	try {
 		const gameVersion = await installedGameVersion(context);
-		const resolved = await resolveFeature(context, members, gameVersion);
+		const resolved = await resolveFeature(context, members, directory, gameVersion);
 
 		if (!resolved) {
 			await parkFeature(context, members, directory);

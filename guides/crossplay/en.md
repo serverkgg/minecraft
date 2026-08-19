@@ -12,6 +12,8 @@ In the **Settings** tab turn on **Let Bedrock players in** and save. The server 
 
 @[open](panel:settings)
 
+On Fabric we also install **Fabric API** with them, because Geyser and Floodgate refuse to load without it. You will see it in the Mods tab; leave it there, and keep it if you turn crossplay off — other mods use it too.
+
 If a download fails, your server still starts — without crossplay — and prints a warning line in the console. We never block a start on a download.
 
 ## The address Bedrock players use
